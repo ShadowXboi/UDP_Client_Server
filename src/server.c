@@ -5,7 +5,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
-#include <unistd.h>
 
 #ifndef SOCK_CLOEXEC
     #pragma GCC diagnostic push
@@ -15,6 +14,7 @@
 #endif
 
 #define BASE 10
+#define MAX_CLIENTS 100
 #define BUFFER_SIZE 1024
 #define DEFAULT_PORT 65535
 #define MICRO_SECONDS 100000000L
@@ -26,10 +26,24 @@ typedef struct
     char data[BUFFER_SIZE];
 } Packet;
 
+typedef struct
+{
+    struct sockaddr_in addr;
+    socklen_t          addr_len;
+    int                valid;    // 1 if the entry is used, 0 otherwise
+} Client;
+
+Client *get_clients(void)
+{
+    static Client clients[MAX_CLIENTS] = {0};
+    return clients;
+}
+
 // Function prototype
 static void signal_handler(int signal_number);
-
 static void sigchld_handler(int sig);
+void        add_client(struct sockaddr_in client_addr, socklen_t addr_len);
+void        broadcast_to_clients(int sockfd, const char *message, size_t message_len);
 
 int main(int argc, const char *argv[])
 {
@@ -38,9 +52,12 @@ int main(int argc, const char *argv[])
     int                sockfd;
     Packet             packet;
     struct sigaction   sa;
-    struct sockaddr_in server_addr = {0};
     struct sockaddr_in client_addr;
+    struct sockaddr_in server_addr     = {0};
     socklen_t          client_addr_len = sizeof(client_addr);
+
+    // Initialized client list
+    //memset(clients, 0, sizeof(clients));
 
     printf("To send a signal:\n");
     printf("\tCtrl+C: Sends the SIGINT signal to the process.\n");
@@ -76,7 +93,6 @@ int main(int argc, const char *argv[])
     }
 
     // Validate the port number
-
     psort = strtol(argv[1], &end, BASE);
     if(*end != '\0' || psort <= 0 || psort > DEFAULT_PORT)
     {
@@ -107,13 +123,6 @@ int main(int argc, const char *argv[])
 
     printf("UDP Server listening on port %s...\n", argv[1]);
 
-    // change the current working directory
-    //    if(chdir("../src") == -1)
-    //    {
-    //        perror(" changing directory failed ");
-    //        exit(EXIT_FAILURE);
-    //    }
-
     while(1)
     {
         ssize_t recv_len;
@@ -126,6 +135,9 @@ int main(int argc, const char *argv[])
 
         if(recv_len > 0)
         {
+            // add client if not already added
+            add_client(client_addr, client_addr_len);
+
             char ack_message[BUFFER_SIZE];
             int  ack_len;
             printf("Received: %s | Seq: %d\n", packet.data, packet.sequence_number);
@@ -177,11 +189,43 @@ int main(int argc, const char *argv[])
                     perror("sendto failed with fallback message");
                 }
             }
+
+            // Broadcast the received packet to all clients
+            broadcast_to_clients(sockfd, packet.data, strlen(packet.data));
         }
     }
 
     // close(sockfd);
     // return 0;
+}
+
+// Add a new client to the list
+void add_client(struct sockaddr_in client_addr, socklen_t addr_len)
+{
+    Client *clients = get_clients(); // Get the clients array
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(!clients[i].valid)
+        {
+            clients[i].addr     = client_addr;
+            clients[i].addr_len = addr_len;
+            clients[i].valid    = 1;
+            return;
+        }
+    }
+}
+
+// Broadcast a message to all clients
+void broadcast_to_clients(int sockfd, const char *message, size_t message_len)
+{
+    Client *clients = get_clients(); // Get the clients array
+    for(int i = 0; i < MAX_CLIENTS; i++)
+    {
+        if(clients[i].valid)
+        {
+            sendto(sockfd, message, message_len, 0, (struct sockaddr *)&(clients[i].addr), clients[i].addr_len);
+        }
+    }
 }
 
 static void sigchld_handler(int sig)
