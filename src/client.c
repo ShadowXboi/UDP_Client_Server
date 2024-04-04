@@ -1,5 +1,4 @@
 #include <arpa/inet.h>
-#include <errno.h>    // for errno, EWOULDBLOCK
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,7 +31,6 @@ int  wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr
 
 int main(void)
 {
-    bool               should_exit = false;
     int                sockfd;
     struct sockaddr_in server_addr;
     Packet             packet;
@@ -57,60 +55,56 @@ int main(void)
     cbreak();
     noecho();                 // Don't echo inputted keys
     keypad(stdscr, TRUE);     // Enable special keys to be captured
-    nodelay(stdscr, TRUE);    // Make getch non-blocking, Set getch() to non-blocking mode
+    nodelay(stdscr, TRUE);    // Make getch non-blocking
 
     // Send initial handshake message
     strcpy(packet.data, "HELLO");
     packet.sequence_number = sequence_number++;
     send_packet_with_retry(sockfd, &server_addr, &packet);
 
-    while(!should_exit)
+    printw("Press arrow keys to move the character. 'q' to quit.\n");
+    refresh();
+
+    while(1)
     {
-        int                ch = getch();    // Non-blocking getch
-        struct sockaddr_in src_addr;
-        socklen_t          src_addr_len = sizeof(src_addr);
-        char               buffer[BUFFER_SIZE];
-        ssize_t            recv_len = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr *)&src_addr, &src_addr_len);
-        if(ch != ERR)
-        {    // Check if a key was pressed
-            memset(&packet, 0, sizeof(packet));
-            packet.sequence_number = sequence_number++;
+        bool send_command = true;
+        int  ch           = getch();
+        memset(packet.data, 0, BUFFER_SIZE);    // Clear previous command
+        packet.sequence_number = sequence_number++;
 
-            if(ch == KEY_UP || ch == KEY_DOWN || ch == KEY_LEFT || ch == KEY_RIGHT)
-            {
-                // Packet data setup for movement
-                sprintf(packet.data, "MOVE %d", ch);    // Example payload
-                send_packet_with_retry(sockfd, &server_addr, &packet);
-            }
-            else if(ch == 'q' || ch == 'Q')
-            {
-                should_exit = true;    // Exit condition
-            }
-        }
-
-        // Attempt to receive data from the server
-
-        if(recv_len > 0)
+        switch(ch)
         {
-            buffer[recv_len] = '\0';    // Ensure the string is null-terminated
-            // Process the received data
-            // For instance, updating the game state or printing server messages
-            printw("Server: %s\n", buffer);    // Display received message in ncurses window
-        }
-        else if(errno != EAGAIN && errno != EWOULDBLOCK)
-        {
-            perror("recvfrom failed");
-            // Optional: handle the error, such as attempting to reconnect
+            case KEY_UP:
+                strcpy(packet.data, "MOVE UP");
+                break;
+            case KEY_DOWN:
+                strcpy(packet.data, "MOVE DOWN");
+                break;
+            case KEY_LEFT:
+                strcpy(packet.data, "MOVE LEFT");
+                break;
+            case KEY_RIGHT:
+                strcpy(packet.data, "MOVE RIGHT");
+                break;
+            case 'q':        // Quit command
+                endwin();    // End ncurses mode before exiting
+                close(sockfd);
+                return 0;
+            default:
+                send_command = false;    // No recognized command, don't send
+                break;
         }
 
-        // Refresh the screen to update any changes made by printw
-        refresh();
+        if(send_command)
+        {
+            send_packet_with_retry(sockfd, &server_addr, &packet);
+        }
     }
 
-    // Cleanup before exiting
-    endwin();    // End ncurses session
-    close(sockfd);
-    return 0;
+    // Should never reach here, but in case
+    //    endwin();    // End ncurses mode
+    //    close(sockfd);
+    //    return 0;
 }
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const Packet *packet)
