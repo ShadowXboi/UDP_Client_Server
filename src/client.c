@@ -58,9 +58,9 @@ int main(void)
     nodelay(stdscr, TRUE);    // Make getch non-blocking
 
     // Send initial handshake message
-    strcpy(packet.data, "HELLO");
-    packet.sequence_number = sequence_number++;
-    send_packet_with_retry(sockfd, &server_addr, &packet);
+    // strcpy(packet.data, "HELLO");
+    // packet.sequence_number = sequence_number++;
+    // send_packet_with_retry(sockfd, &server_addr, &packet);
 
     printw("Press arrow keys to move the character. 'q' to quit.\n");
     refresh();
@@ -102,9 +102,9 @@ int main(void)
     }
 
     // Should never reach here, but in case
-    //    endwin();    // End ncurses mode
-    //    close(sockfd);
-    //    return 0;
+    // endwin();    // End ncurses mode
+    // close(sockfd);
+    // return 0;
 }
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const Packet *packet)
