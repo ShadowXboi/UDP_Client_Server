@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/time.h>    // For struct timeval
+#include <sys/time.h>
 #include <unistd.h>
 
 #ifndef SOCK_CLOEXEC
@@ -27,7 +27,7 @@ typedef struct
 } Packet;
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const Packet *packet);
-int  wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr);
+int  wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr, int expected_seq_num);
 
 int main(void)
 {
@@ -56,11 +56,6 @@ int main(void)
     noecho();                 // Don't echo inputted keys
     keypad(stdscr, TRUE);     // Enable special keys to be captured
     nodelay(stdscr, TRUE);    // Make getch non-blocking
-
-    // Send initial handshake message
-    // strcpy(packet.data, "HELLO");
-    // packet.sequence_number = sequence_number++;
-    // send_packet_with_retry(sockfd, &server_addr, &packet);
 
     printw("Press arrow keys to move the character. 'q' to quit.\n");
     refresh();
@@ -115,29 +110,20 @@ void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const P
     {
         sendto(sockfd, packet, sizeof(*packet), 0, (const struct sockaddr *)server_addr, sizeof(*server_addr));
 
-        if(wait_for_ack(sockfd, ack_message, server_addr))
+        // Pass the expected sequence number to wait_for_ack
+        if(wait_for_ack(sockfd, ack_message, server_addr, packet->sequence_number))
         {
-            printf("ACK received: %s\n", ack_message);
+            printf("ACK received for Seq: %d\n", packet->sequence_number);
             return;
         }
 
-        printf("ACK not received, retrying...\n");
+        printf("ACK not received for Seq: %d, retrying...\n", packet->sequence_number);
     }
-    printf("Failed to receive ACK after %d attempts.\n", retries);
+    printf("Failed to receive ACK for Seq: %d after %d attempts.\n", packet->sequence_number, retries);
 }
 
-//if (wait_for_ack(sockfd, ack_message, server_addr, packet->sequence_number)) {
-//            printf("ACK received for Seq: %d\n", packet->sequence_number);
-//            return;
-//        }
-//
-//        printf("ACK not received for Seq: %d, retrying...\n", packet->sequence_number);
-//    }
-//    printf("Failed to receive ACK for Seq: %d after %d attempts.\n", packet->sequence_number, retries);
-//}
-
-
-int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr)
+// Adjust the function prototype to include the expected sequence number.
+int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr, int expected_seq_num)
 {
     struct timeval tv;
     fd_set         readfds;
@@ -146,29 +132,27 @@ int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr)
     tv.tv_sec  = ACK_TIMEOUT;
     tv.tv_usec = 0;
 
-    // Initialize the set of active sockets
-    // FD_ZERO(&readfds);
-    // use memset to clear the fd_set structure.
-    memset(&readfds, 0, sizeof(readfds));
-
-    FD_SET(sockfd, &readfds);    // Add sockfd to the set after clearing.
+    // Clear the set and add sockfd
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
 
     if(select(sockfd + 1, &readfds, NULL, NULL, &tv) > 0)
     {
+        int       received_seqnum;
         socklen_t len = sizeof(*server_addr);
         ssize_t   n   = recvfrom(sockfd, ack_message, BUFFER_SIZE - 1, 0, (struct sockaddr *)server_addr, &len);
         if(n > 0)
         {
             ack_message[n] = '\0';    // Null-terminate the received message
-            //simple parsing to check the format
-            int received_seqnum;
-            if (sscanf(ack_message, "ACK for Seq: %d", &recived_seq_num) == 1) {
-                if (received_seq_num == expected_seq_num) {
-                    
+            // Check if the ACK message contains the expected sequence number
+            if(sscanf(ack_message, "ACK %d", &received_seqnum) == 1)
+            {
+                if(received_seqnum == expected_seq_num)
+                {
+                    return 1;    // Correct ACK received
                 }
             }
-            return 1;                 // ACK received
         }
     }
-    return 0;    // ACK not received
+    return 0;    // ACK not received or not correct
 }
