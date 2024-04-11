@@ -1,3 +1,4 @@
+#include "server.h"
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,7 +35,7 @@ static Position charPosition = {0, 0};    // Initialize character position
 // Function prototype
 void broadcast_position(int sockfd, struct sockaddr_in *client_addr, socklen_t client_addr_len);
 
-int main(int argc, const char *argv[])
+int run_server(int argc, char *argv[])
 {
     char  *end;
     long   psort;
@@ -87,14 +88,14 @@ int main(int argc, const char *argv[])
     while(1)
     {
         char    ack_message[BUFFER_SIZE];
-        ssize_t recv_len = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&client_addr, &client_addr_len);
+        ssize_t recv_len;
+
+        recv_len = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&client_addr, &client_addr_len);
         if(recv_len > 0)
         {
             printf("Received: %s | Seq: %d\n", packet.data, packet.sequence_number);
-
             // Construct an ACK message including the sequence number
             snprintf(ack_message, BUFFER_SIZE, "ACK %d", packet.sequence_number);
-
             // Send the ACK back to the client
             if(sendto(sockfd, ack_message, strlen(ack_message), 0, (struct sockaddr *)&client_addr, client_addr_len) < 0)
             {
@@ -106,8 +107,7 @@ int main(int argc, const char *argv[])
             perror("recvfrom failed");
         }
     }
-
-    //   return 0;
+    // return 0;
 }
 
 void broadcast_position(int sockfd, struct sockaddr_in *client_addr, socklen_t client_addr_len)
