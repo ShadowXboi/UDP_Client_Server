@@ -1,3 +1,4 @@
+#include "client.h"
 #include <arpa/inet.h>
 #include <ncurses.h>
 #include <stdio.h>
@@ -27,10 +28,18 @@ typedef struct
 } Packet;
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const Packet *packet);
-int  wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr, int expected_seq_num);
+int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr, int expected_seq_num);
 
-int main(void)
+
+int run_client(int argc, char *argv[])
 {
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <Server IP> <Server Port>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    const char* SERVER_IP = argv[1];
+    int SERVER_PORT = atoi(argv[2]);
+
     int                sockfd;
     struct sockaddr_in server_addr;
     Packet             packet;
@@ -64,6 +73,7 @@ int main(void)
     {
         bool send_command = true;
         int  ch           = getch();
+
         memset(packet.data, 0, BUFFER_SIZE);    // Clear previous command
         packet.sequence_number = sequence_number++;
 
@@ -96,10 +106,8 @@ int main(void)
         }
     }
 
-    // Should never reach here, but in case
-    // endwin();    // End ncurses mode
-    // close(sockfd);
-    // return 0;
+
+     return 0; //should never reach here
 }
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const Packet *packet)
