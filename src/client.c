@@ -126,6 +126,17 @@ void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, const P
     printf("Failed to receive ACK after %d attempts.\n", retries);
 }
 
+//if (wait_for_ack(sockfd, ack_message, server_addr, packet->sequence_number)) {
+//            printf("ACK received for Seq: %d\n", packet->sequence_number);
+//            return;
+//        }
+//
+//        printf("ACK not received for Seq: %d, retrying...\n", packet->sequence_number);
+//    }
+//    printf("Failed to receive ACK for Seq: %d after %d attempts.\n", packet->sequence_number, retries);
+//}
+
+
 int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr)
 {
     struct timeval tv;
@@ -149,6 +160,13 @@ int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr)
         if(n > 0)
         {
             ack_message[n] = '\0';    // Null-terminate the received message
+            //simple parsing to check the format
+            int received_seqnum;
+            if (sscanf(ack_message, "ACK for Seq: %d", &recived_seq_num) == 1) {
+                if (received_seq_num == expected_seq_num) {
+                    
+                }
+            }
             return 1;                 // ACK received
         }
     }
