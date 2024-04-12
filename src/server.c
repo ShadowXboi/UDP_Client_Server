@@ -1,10 +1,9 @@
-#include "server.h"
+#include "../include/server.h"
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-
 
 #ifndef SOCK_CLOEXEC
     #pragma GCC diagnostic push
@@ -30,21 +29,20 @@ typedef struct
     int y;
 } Position;
 
-static Position charPosition = {0, 0};    // Initialize character position
+static Position const charPosition = {0, 0};    // Initialize character position
 
 // Function prototype
-void broadcast_position(int sockfd, struct sockaddr_in *client_addr, socklen_t client_addr_len);
+void broadcast_position(int sockfd, const struct sockaddr_in *client_addr, socklen_t client_addr_len);
 
-int run_server(int argc, char *argv[])
+int run_server(int argc, const char *argv[])
 {
-    char  *end;
-    long   psort;
-    int    sockfd;
-    Packet packet;
+    char              *end;
+    long               psort;
+    int                sockfd;
+    Packet             packet;
     struct sockaddr_in server_addr = {0};
     struct sockaddr_in client_addr;
     socklen_t          client_addr_len = sizeof(client_addr);
-
 
     // Validate command line arguments for port number
     if(argc != 2)
@@ -87,12 +85,12 @@ int run_server(int argc, char *argv[])
 
     while(1)
     {
-        char    ack_message[BUFFER_SIZE];
         ssize_t recv_len;
 
         recv_len = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr *)&client_addr, &client_addr_len);
         if(recv_len > 0)
         {
+            char ack_message[BUFFER_SIZE];
             printf("Received: %s | Seq: %d\n", packet.data, packet.sequence_number);
             // Construct an ACK message including the sequence number
             snprintf(ack_message, BUFFER_SIZE, "ACK %d", packet.sequence_number);
@@ -110,9 +108,10 @@ int run_server(int argc, char *argv[])
     // return 0;
 }
 
-void broadcast_position(int sockfd, struct sockaddr_in *client_addr, socklen_t client_addr_len)
+void broadcast_position(int sockfd, const struct sockaddr_in *client_addr, socklen_t client_addr_len)
 {
     char updateMsg[BUFFER_SIZE];
     snprintf(updateMsg, sizeof(updateMsg), "New Position: X=%d, Y=%d", charPosition.x, charPosition.y);
-    sendto(sockfd, updateMsg, strlen(updateMsg), 0, (struct sockaddr *)client_addr, client_addr_len);
+    sendto(sockfd, updateMsg, strlen(updateMsg), 0, (const struct sockaddr *)client_addr, client_addr_len);
+    // sendto(sockfd, some_data, some_length, 0, (const struct sockaddr *)client_addr, client_addr_len);
 }
