@@ -1,4 +1,0 @@
-/Users/tushargandhi/Desktop/Assign-v5/build/CMakeFiles/main.dir
-/Users/tushargandhi/Desktop/Assign-v5/build/CMakeFiles/format.dir
-/Users/tushargandhi/Desktop/Assign-v5/build/CMakeFiles/edit_cache.dir
-/Users/tushargandhi/Desktop/Assign-v5/build/CMakeFiles/rebuild_cache.dir
