@@ -115,3 +115,4 @@ void broadcast_position(int sockfd, const struct sockaddr_in *client_addr, sockl
     sendto(sockfd, updateMsg, strlen(updateMsg), 0, (const struct sockaddr *)client_addr, client_addr_len);
     // sendto(sockfd, some_data, some_length, 0, (const struct sockaddr *)client_addr, client_addr_len);
 }
+

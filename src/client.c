@@ -15,8 +15,6 @@
     #pragma GCC diagnostic pop
 #endif
 
-// #define SERVER_IP "127.0.0.1"
-// #define SERVER_PORT 65535
 #define BUFFER_SIZE 1024
 #define ACK_TIMEOUT 2
 #define BASE 10
@@ -53,54 +51,25 @@ static Queue *get_queue(void)
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, Packet *packet);
 int  wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr, int expected_seq_num);
 
-// Function definitions
-static void enqueue(const Packet *packet)
-{
-    Node  *newNode = malloc(sizeof(Node));
-    Queue *queue   = get_queue();    // Access the queue via getter
-    if(!newNode)
-    {
-        perror("Failed to allocate node");
-        exit(EXIT_FAILURE);
-    }
-    newNode->packet = *packet;    // Copy packet data from the pointer
-    newNode->next   = NULL;
-    if(!queue->rear)
-    {    // Use 'queue' instead of 'packet_queue'
-        queue->front = queue->rear = newNode;
-    }
-    else
-    {
-        queue->rear->next = newNode;
-        queue->rear       = newNode;
-    }
-}
-
-static int dequeue(Packet *packet)
-{
-    Node  *temp;
-    Queue *queue = get_queue();    // Access the queue via getter
-    if(!queue->front)
-    {
-        return 0;    // Queue is empty
-    }
-    temp         = queue->front;
-    *packet      = temp->packet;
-    queue->front = queue->front->next;
-    if(!queue->front)
-    {
-        queue->rear = NULL;
-    }
-    free(temp);
-    return 1;
-}
-
 int run_client(const char *server_ip, int server_port)
 {
     int                sockfd;
     struct sockaddr_in server_addr;
     Packet             packet;
     int                sequence_number = 0;
+    int                windowHeight    = 24;                            // Define the height of the window
+    int                windowWidth     = 80;                            // Define the width of the window
+    int                start_y         = (LINES - windowHeight) / 2;    // Calculating y position to center the window
+    int                start_x         = (COLS - windowWidth) / 2;      // Calculating x position to center the window
+
+    initscr();               // Start ncurses mode
+    cbreak();                // Line buffering disabled
+    keypad(stdscr, TRUE);    // Enable special keys to be read as single values
+    noecho();                // Don't echo keystrokes
+
+    WINDOW *win = newwin(windowHeight, windowWidth, start_y, start_x);
+    box(win, 0, 0);    // Draw a box around the edges of the window
+    wrefresh(win);     // Refresh the window to show the box
 
     sockfd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     if(sockfd < 0)
@@ -120,11 +89,11 @@ int run_client(const char *server_ip, int server_port)
         exit(EXIT_FAILURE);
     }
 
-    initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);
-    nodelay(stdscr, TRUE);
+    //    initscr();
+    //    cbreak();
+    //    noecho();
+    //    keypad(stdscr, TRUE);
+    //    nodelay(stdscr, TRUE);
 
     printw("Press arrow keys to move the character. 'q' to quit.\n");
     refresh();
@@ -175,6 +144,48 @@ int run_client(const char *server_ip, int server_port)
     }
 
     // return 0;
+}
+
+// Function definitions
+static void enqueue(const Packet *packet)
+{
+    Node  *newNode = malloc(sizeof(Node));
+    Queue *queue   = get_queue();    // Access the queue via getter
+    if(!newNode)
+    {
+        perror("Failed to allocate node");
+        exit(EXIT_FAILURE);
+    }
+    newNode->packet = *packet;    // Copy packet data from the pointer
+    newNode->next   = NULL;
+    if(!queue->rear)
+    {    // Use 'queue' instead of 'packet_queue'
+        queue->front = queue->rear = newNode;
+    }
+    else
+    {
+        queue->rear->next = newNode;
+        queue->rear       = newNode;
+    }
+}
+
+static int dequeue(Packet *packet)
+{
+    Node  *temp;
+    Queue *queue = get_queue();    // Access the queue via getter
+    if(!queue->front)
+    {
+        return 0;    // Queue is empty
+    }
+    temp         = queue->front;
+    *packet      = temp->packet;
+    queue->front = queue->front->next;
+    if(!queue->front)
+    {
+        queue->rear = NULL;
+    }
+    free(temp);
+    return 1;
 }
 
 void send_packet_with_retry(int sockfd, struct sockaddr_in *server_addr, Packet *packet)
