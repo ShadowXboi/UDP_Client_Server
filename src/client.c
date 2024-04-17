@@ -18,6 +18,8 @@
 #define BUFFER_SIZE 1024
 #define ACK_TIMEOUT 2
 #define BASE 10
+#define WIDTH 80
+#define HEIGHT 24
 
 typedef struct
 {
@@ -57,17 +59,18 @@ int run_client(const char *server_ip, int server_port)
     struct sockaddr_in server_addr;
     Packet             packet;
     int                sequence_number = 0;
-    int                windowHeight    = 24;                            // Define the height of the window
-    int                windowWidth     = 80;                            // Define the width of the window
+    int                windowHeight    = HEIGHT;                        // Define the height of the window
+    int                windowWidth     = WIDTH;                         // Define the width of the window
     int                start_y         = (LINES - windowHeight) / 2;    // Calculating y position to center the window
     int                start_x         = (COLS - windowWidth) / 2;      // Calculating x position to center the window
+    WINDOW             *win;
 
     initscr();               // Start ncurses mode
     cbreak();                // Line buffering disabled
     keypad(stdscr, TRUE);    // Enable special keys to be read as single values
     noecho();                // Don't echo keystrokes
 
-    WINDOW *win = newwin(windowHeight, windowWidth, start_y, start_x);
+    win = newwin(windowHeight, windowWidth, start_y, start_x);
     box(win, 0, 0);    // Draw a box around the edges of the window
     wrefresh(win);     // Refresh the window to show the box
 
@@ -244,4 +247,3 @@ int wait_for_ack(int sockfd, char *ack_message, struct sockaddr_in *server_addr,
     }
     return 0;
 }
-
